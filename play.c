@@ -5,7 +5,7 @@
 
 // used to play Portal screens :)
 
-#define wikiSpeed 100
+#define wikiSpeed 1000
 
 char* readfile(char* filename) {
 	FILE *file;
@@ -52,54 +52,76 @@ int main(int argc, char** argv) {
 	int wikiHeight = (h/2)-2;
 	photos = newwin( (h/2), (w/2), (h/2)-1, (w/2)-1 ); // fourth quadrant
 
-	wborder(text, '|', '|', '-', '-', '+', '+', '+', '+'); // ascii borders
-	wborder(wiki, '|', '|', '-', '-', '+', '+', '+', '+'); // ascii borders
-	wborder(photos, '|', '|', '-', '-', '+', '+', '+', '+'); // ascii borders
-	wrefresh(text);
-	wrefresh(photos);
-	wrefresh(wiki);
-	usleep(1000000);
-	endwin();
-	
 	char* lyrics = readfile("1");
-	FILE* timing = fopen("1.r", "r");
 	char* wikiData = readfile("wiki");
 
 	int time = 0;
-	int stopwatch = 0;
-	int nextTime = 0;
+	int sleepTime = 0;
+	int speed = wikiSpeed;
 	int seek = 0;
-	int nextSeek = 0;
+
+	int lX = -1; // lyrics X
+	int lY = 0;	// lyrics Y
 
 	while (1) { // repeat until break (which will be end of song)
-		if (nextTime == 0) {
-			fscanf(timing, "%d\n", &nextTime);
-			nextSeek = seek;
-			while (lyrics[nextSeek] != '~' && lyrics[nextSeek] != '!') {
-				nextSeek++;
+		if (time % speed == 0 && sleepTime <= 0) {
+			int c = lyrics[seek]; // character
+			wmove(text, lY + 1, lX + 2);
+			waddch(text, ' ');
+			if (c == '\n') {
+				lX = -1;
+				lY++;
+				if (lY > h - 5) {
+					lY = 0;
+					wclear(text);
+				}
+			} else {
+				if (c == '$') { // $leep
+												// usage: $5 means sleep for 5000 microseconds
+					seek++;
+					sleepTime = wikiSpeed * (lyrics[seek] - '0' + 1);
+				} else if (c == '~') { // change speed
+															 // usage: ~9 means slowest, ~0 means fastest
+					seek++;
+					speed = wikiSpeed * (lyrics[seek] - '0' + 1);
+				} else if (c == '!') { // goodbye...
+					endwin();
+					exit(0);
+				} else {
+					lX++;
+					wmove(text, lY + 1, lX + 1);
+					waddch(text, c);
+					wmove(text, lY + 1, lX + 2);
+					waddch(text, '_');
+				}
 			}
-		}
+			seek++;
 
-		int cX = (time / wikiSpeed) % wikiWidth;
-		int cY = (time / wikiSpeed) / wikiWidth;
-		cY %= wikiHeight;
-		wmove(wiki, cY + 1, cX + 1);
-		waddch(wiki, wikiData[time / wikiSpeed]);
-		cX++;
-		cY += cX >= wikiWidth; // bounding logic
-		cX %= wikiWidth;
-		cY %= wikiHeight;
-		if (cX == 0 && cY == 0) {
-			wclear(wiki);
+		} else if (sleepTime > 0) {
+			sleepTime--;
+		}	
+		if (time % wikiSpeed == 0) {
+			int cX = (time / wikiSpeed) % wikiWidth;
+			int cY = (time / wikiSpeed) / wikiWidth;
+			cY %= wikiHeight;
+			wmove(wiki, cY + 1, cX + 1);
+			waddch(wiki, wikiData[time / wikiSpeed]);
+			cX++;
+			cY += cX >= wikiWidth; // bounding logic
+			cX %= wikiWidth;
+			cY %= wikiHeight;
+			if (cX == 0 && cY == 0) {
+				wclear(wiki);
+			}
+			wmove(wiki, cY + 1, cX + 1);
+			waddch(wiki, '_'); // fun little cursor :3
+
 			wborder(wiki, '|', '|', '-', '-', '+', '+', '+', '+'); // ascii borders
+			wrefresh(text);
+			wborder(text, '|', '|', '-', '-', '+', '+', '+', '+'); // ascii borders
+			wrefresh(wiki);
 		}
-		wmove(wiki, cY + 1, cX + 1);
-		waddch(wiki, '_'); // fun little cursor :3
-
-		wrefresh(wiki);
-
 		usleep(1);
 		time++;
-		stopwatch++;
 	}
 }
